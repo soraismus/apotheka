@@ -513,10 +513,7 @@ updateForFilters getFilters state =
     state
 
 view
-  :: forall m
-   . MonadAff m
-  => StateRec
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  :: forall i. StateRec -> H.HTML i Query
 view stateRec@{ dailyIndex, papers, selectedPapers } =
   HH.div
     [ class_ "container" ]
@@ -526,11 +523,7 @@ view stateRec@{ dailyIndex, papers, selectedPapers } =
     , viewPapers stateRec
     ]
 
-viewHeader
-  :: forall m
-   . MonadAff m
-  => Int
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewHeader :: forall i p. Int -> H.HTML i p
 viewHeader n =
   HH.header_
     [ HH.h1_
@@ -547,14 +540,13 @@ viewHeader n =
     ]
 
 viewFilters
-  :: forall m r
-   . MonadAff m
-  => { title :: String
+  :: forall i r
+   . { title :: String
      , author :: String
      , facets :: Array { name :: String, titleIds :: Set Id }
      | r
      }
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  -> H.HTML i Query
 viewFilters { title, author, facets } =
   HH.p_
     [ viewTitleSearchBox title
@@ -564,10 +556,7 @@ viewFilters { title, author, facets } =
     , HH.div [ HP.id_ "year-slider" ] []
     ]
 
-viewIncludeUnknown
-  :: forall m
-   . MonadAff m
-  => H.ParentHTML Query ChildQuery ChildSlot m
+viewIncludeUnknown :: forall i. H.HTML i Query
 viewIncludeUnknown = HH.div
   [ class_ "include-unknown" ]
   [ HH.input
@@ -579,11 +568,7 @@ viewIncludeUnknown = HH.div
   , HH.text "Include papers with unknown year of publication "
   ]
 
-viewTitleSearchBox
-  :: forall m
-   . MonadAff m
-  => String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewTitleSearchBox :: forall i . String -> H.HTML i Query
 viewTitleSearchBox _filter =
   HH.div
     [ class_ "title-search" ]
@@ -596,11 +581,7 @@ viewTitleSearchBox _filter =
       ]
     ]
 
-viewAuthorSearchBox
-  :: forall m
-   . MonadAff m
-  => String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewAuthorSearchBox :: forall i. String -> H.HTML i Query
 viewAuthorSearchBox authorName =
   HH.div
     [ class_ "author-search" ]
@@ -628,11 +609,7 @@ pushMap f g = f >>> \fb -> map (const $ g unit) fb
 
 infixr 5 pushMap as >.>
 
-viewFacet
-  :: forall m
-   . MonadAff m
-  => String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewFacet :: forall i. String -> H.HTML i Query
 viewFacet str =
   HH.div
     [ class_ "facet"
@@ -640,33 +617,20 @@ viewFacet str =
     ]
     [ HH.text str ]
 
-viewFacets
-  :: forall m
-   . MonadAff m
-  => Array String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewFacets :: forall i. Array String -> H.HTML i Query
 viewFacets strs =
   HH.div
     [ class_ "facets" ]
     (map viewFacet strs)
 
-viewPaperOfTheDay
-  :: forall m
-   . MonadAff m
-  => Int
-  -> Array Paper
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewPaperOfTheDay :: forall i. Int -> Array Paper -> H.HTML i Query
 viewPaperOfTheDay index papers =
   maybe
     (HH.div_ [])
     _viewPaperOfTheDay
     (papers !! index)
 
-_viewPaperOfTheDay
-  :: forall m
-   . MonadAff m
-  => Paper
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+_viewPaperOfTheDay :: forall i. Paper -> H.HTML i Query
 _viewPaperOfTheDay paper = do
   HH.div_
     [ HH.h3_ [ HH.text "Paper of the Day" ]
@@ -684,9 +648,8 @@ _viewPaperOfTheDay paper = do
     ]
 
 viewPapers
-  :: forall m r0 r1
-   . MonadAff m
-  => { selectedPapers :: Array Paper
+  :: forall i r0 r1
+   . { selectedPapers :: Array Paper
      , filters
          :: { title :: String
             , author :: String
@@ -697,18 +660,17 @@ viewPapers
             }
      | r0
      }
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  -> H.HTML i Query
 viewPapers { selectedPapers, filters } =
   HH.ul
     [ class_ "paper-list" ]
     (map (viewPaper filters) selectedPapers)
 
 viewPaper
-  :: forall m r
-   . MonadAff m
-  => { title :: String, author :: String | r }
+  :: forall i r
+   . { title :: String, author :: String | r }
   -> Paper
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  -> H.HTML i Query
 viewPaper { author, title } paper =
   HH.li
     [ class_ "paper" ]
@@ -722,13 +684,7 @@ viewPaper { author, title } paper =
     , viewEditLink paper.loc
     ]
 
-viewTitle
-  :: forall m
-   . MonadAff m
-  => Title
-  -> Maybe Link
-  -> Maybe String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewTitle :: forall i p. Title -> Maybe Link -> Maybe String -> H.HTML i p
 viewTitle title maybeLink maybeFilter =
   HH.p
     [ class_ "title" ]
@@ -744,10 +700,9 @@ viewTitle title maybeLink maybeFilter =
       maybeLink
 
 viewEditLink
-  :: forall m r
-   . MonadAff m
-  => { file :: Int, line :: Int | r }
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  :: forall i p r
+   . { file :: Int, line :: Int | r }
+  -> H.HTML i p
 viewEditLink { file, line } =
   HH.a
     [ class_ "subtle-link edit"
@@ -763,21 +718,15 @@ viewEditLink { file, line } =
         <> ".yaml#L"
         <> show line
 
-viewAuthors
-  :: forall m
-   . MonadAff m
-  => Array Author
-  -> Maybe String
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewAuthors :: forall i. Array Author -> Maybe String -> H.HTML i Query
 viewAuthors authors maybeFilter =
   HH.span_ $ map (viewAuthor maybeFilter) authors
 
 viewAuthor
-  :: forall m
-   . MonadAff m
-  => Maybe String
+  :: forall i
+   . Maybe String
   -> Author
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+  -> H.HTML i Query
 viewAuthor maybeFilter author =
   let
     str = present author
@@ -791,34 +740,22 @@ viewAuthor maybeFilter author =
         (highlightPatches str <<< split)
         maybeFilter)
 
-viewYearMaybe
-  :: forall m
-   . MonadAff m
-  => Maybe Year
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewYearMaybe :: forall i p. Maybe Year -> H.HTML i p
 viewYearMaybe maybeYear =
   maybe
     (HH.text "")
     (\year -> HH.text $ " [" <> present year <> "] ")
     maybeYear
 
-viewCitations
-  :: forall m
-   . MonadAff m
-  => Array Title
-  -> H.ParentHTML Query ChildQuery ChildSlot m
+viewCitations :: forall i p. Array Title -> H.HTML i p
 viewCitations citations =
   HH.text _text
   where
     count = Array.length citations
     _text = if count == 0 then "" else " (cited by " <> show count <> ")"
 
-renderSegment
-  :: forall m
-   . MonadAff m
-  => Either NonMatch Match
-  -> H.ParentHTML Query ChildQuery ChildSlot m
-renderSegment =
+viewSegment :: forall i p. Either NonMatch Match -> H.HTML i p
+viewSegment =
   either
     HH.text
     (HH.span [ class_ "highlight" ] <<< Array.singleton <<< HH.text)
@@ -829,14 +766,9 @@ toArray list = Array.fromFoldable list
 toList :: forall a. Array a -> List a
 toList array = List.fromFoldable array
 
-highlightPatches
-  :: forall m
-   . MonadAff m
-  => String
-  -> Array String
-  -> Array (H.ParentHTML Query ChildQuery ChildSlot m)
+highlightPatches :: forall i p. String -> Array String -> Array (H.HTML i p)
 highlightPatches haystack needles =
-  toArray $ map renderSegment segments
+  toArray $ map viewSegment segments
   where
     getSegments :: List String -> String -> List (Either NonMatch Match)
     getSegments =
