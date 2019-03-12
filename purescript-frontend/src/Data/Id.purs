@@ -12,7 +12,7 @@ import Data.Argonaut.Encode (class EncodeJson)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
-import HaskPapers.Data.ToHtmlString (class ToHtmlString, toHtmlString)
+import HaskPapers.Data.Present (class Present)
 
 newtype Id = Id Int
 
@@ -28,8 +28,8 @@ instance ordId :: Ord Id where
 instance showId :: Show Id where
   show = genericShow
 
-instance toHtmlStringId :: ToHtmlString Id where
-  toHtmlString (Id int) = show int
+instance presentId :: Present Id where
+  present (Id int) = show int
 
 toIdMaybe :: Int -> Maybe Id
 toIdMaybe int = Just (Id int)

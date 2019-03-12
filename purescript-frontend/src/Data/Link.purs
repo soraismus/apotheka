@@ -11,7 +11,7 @@ import Data.Argonaut.Encode (class EncodeJson)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
-import HaskPapers.Data.ToHtmlString (class ToHtmlString, toHtmlString)
+import HaskPapers.Data.Present (class Present)
 
 newtype Link = Link String
 
@@ -24,8 +24,8 @@ derive newtype instance encodeJsonLink :: EncodeJson Link
 instance showLink :: Show Link where
   show = genericShow
 
-instance toHtmlStringLink :: ToHtmlString Link where
-  toHtmlString (Link str) = str
+instance presentLink :: Present Link where
+  present (Link str) = str
 
 parse :: String -> Maybe Link
 parse "" = Nothing

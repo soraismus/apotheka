@@ -6,7 +6,6 @@ module HaskPapers.Component.Root
 import Prelude
 
 import Web.UIEvent.KeyboardEvent (KeyboardEvent, key)
-import Web.UIEvent.KeyboardEvent.EventTypes as KET
 
 import Data.Array ((!!))
 import Data.Array as Array
@@ -34,12 +33,9 @@ import Data.String.Regex as Regex
 import Data.String.Regex.Flags (ignoreCase)
 import Data.Tuple (Tuple(..))
 import DOM.HTML.Indexed.InputType as InputType
-import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
-import Halogen.Component.ChildPath as CP
 import Halogen.HTML as HH
-import Halogen.HTML.Core (toPropValue)
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.EventSource (eventSource', eventSource_')
@@ -64,8 +60,8 @@ import HaskPapers.Data.Author (Author)
 import HaskPapers.Data.Id (Id)
 import HaskPapers.Data.Link (Link)
 import HaskPapers.Data.Paper (Paper)
+import HaskPapers.Data.Present (present)
 import HaskPapers.Data.Title (Title)
-import HaskPapers.Data.ToHtmlString (toHtmlString)
 import HaskPapers.Data.Year (Year, toInt)
 import HaskPapers.Data.WrappedDate (WrappedDate(..))
 import HaskPapers.Foreign.Slider (SliderYears, onSliderUpdate)
@@ -217,13 +213,13 @@ component =
         ids = filters.idsForAuthor
         facets = filters.facets
       in
-        if inArray (toHtmlString author) $ map _.name facets
+        if inArray (present author) $ map _.name facets
           then filters
           else filters
             { facets =
                 Array.snoc
                   facets
-                  { name: toHtmlString author
+                  { name: present author
                   , titleIds: buildAuthorFilterIds author authors titles
                   }
             , isIrrelevant { facet = false }
@@ -301,10 +297,10 @@ buildAuthorFilterIds
   -> Map Id (Set Id)
   -> Set Id
 buildAuthorFilterIds author authors authorsIndex
-  | String.null $ String.trim $ toHtmlString author = Set.empty
+  | String.null $ String.trim $ present author = Set.empty
   | otherwise =
       either (const Set.empty) identity do
-        regexes <- getRegexes $ toHtmlString author
+        regexes <- getRegexes $ present author
         let _reduce = reduce regexes
         pure $ foldrWithIndex _reduce Set.empty authors
   where
@@ -321,16 +317,16 @@ buildAuthorFilterIds author authors authorsIndex
 
     -- NB: I think this is intended for a binominal/trinominal author.
     match :: List Regex -> String -> Boolean
-    match regexes fullName =
-      all (\regex -> Regex.test regex fullName) regexes
+    match regexes' fullName' =
+      all (\regex -> Regex.test regex fullName') regexes'
 
     reduce :: List Regex -> Id -> Author -> Set Id -> Set Id
-    reduce regexes id author ids =
-      if match regexes $ toHtmlString author
-        then case Map.lookup id authorsIndex of
-          Nothing -> ids
-          Just _ids -> Set.union ids _ids
-        else ids
+    reduce regexes' id' author' ids' =
+      if match regexes' $ present author'
+        then case Map.lookup id' authorsIndex of
+          Nothing -> ids'
+          Just _ids -> Set.union ids' _ids
+        else ids'
 
 getIdsForTitle :: Set Id -> String -> Array Paper -> Set Id
 getIdsForTitle ids str papers
@@ -344,20 +340,20 @@ getIdsForTitle ids str papers
     _getRegexes :: Array String -> Either String (List Regex)
     _getRegexes =
       foldM
-        (\regexes str -> case Regex.regex str ignoreCase of
-            Left error -> Left $ "Error on '" <> str <> "': " <> error
-            Right regex -> Right $ (regex : regexes))
+        (\_regexes _str -> case Regex.regex _str ignoreCase of
+            Left _error -> Left $ "Error on '" <> _str <> "': " <> _error
+            Right _regex -> Right $ (_regex : _regexes))
         Nil
 
     getRegexes :: String -> Either String (List Regex)
     getRegexes = _getRegexes <<< split
 
     reduce :: List Regex -> Paper -> Set Id -> Set Id
-    reduce regexes paper ids =
-      let str = toHtmlString paper.title
-      in if all (\regex -> Regex.test regex str) regexes
-           then Set.insert paper.titleId ids
-           else ids
+    reduce regexes' paper' ids' =
+      let _str = present paper'.title
+      in if all (\_regex -> Regex.test _regex _str) regexes'
+           then Set.insert paper'.titleId ids'
+           else ids'
 
 getIdsForAuthor :: Set Id -> String -> Array Paper -> Set Id
 getIdsForAuthor ids str papers
@@ -371,28 +367,28 @@ getIdsForAuthor ids str papers
     _getRegexes :: Array String -> Either String (List Regex)
     _getRegexes =
       foldM
-        (\regexes str -> case Regex.regex str ignoreCase of
-            Left error -> Left $ "Error on '" <> str <> "': " <> error
-            Right regex -> Right $ (regex : regexes))
+        (\_regexes _str -> case Regex.regex _str ignoreCase of
+            Left _error -> Left $ "Error on '" <> _str <> "': " <> _error
+            Right _regex -> Right $ (_regex : _regexes))
         Nil
 
     getRegexes :: String -> Either String (List Regex)
     getRegexes = _getRegexes <<< split
 
     match :: List Regex -> Array Author -> Boolean
-    match regexes authors =
+    match regexes' authors' =
       all
-        (\regex ->
+        (\_regex ->
           any
-            (\author -> Regex.test regex $ toHtmlString author)
-            authors)
-        regexes
+            (\_author -> Regex.test _regex $ present _author)
+            authors')
+        regexes'
 
     reduce :: List Regex -> Paper -> Set Id -> Set Id
-    reduce regexes paper ids =
-      if match regexes paper.authors
-        then Set.insert paper.titleId ids
-        else ids
+    reduce regexes' paper' ids' =
+      if match regexes' paper'.authors
+        then Set.insert paper'.titleId ids'
+        else ids'
 
 getAllIds :: Array Paper -> Set Id
 getAllIds = foldr (Set.insert <<< _.titleId) Set.empty
@@ -604,14 +600,14 @@ viewTitleSearchBox
   => RequestArchive m
   => String
   -> H.ParentHTML Query ChildQuery ChildSlot m
-viewTitleSearchBox filter =
+viewTitleSearchBox _filter =
   HH.div
     [ class_ "title-search" ]
     [ HH.input
       [ class_ "title-search-box"
       , HP.placeholder "Search titles"
       , HP.type_ InputType.InputText
-      , HP.value filter
+      , HP.value _filter
       , HE.onValueInput $ HE.input FilterByTitle
       ]
     ]
@@ -779,12 +775,12 @@ viewTitle title maybeLink maybeFilter =
     linkNodes
   where
     titleNodes = maybe
-      [HH.text $ toHtmlString title]
-      (\filter -> highlightPatches (split filter) $ toHtmlString title)
+      [HH.text $ present title]
+      (highlightPatches (present title) <<< split)
       maybeFilter
     linkNodes = maybe
       titleNodes
-      (\link -> [HH.a [class_ "link", HP.href $ toHtmlString link] titleNodes])
+      (\link -> [HH.a [class_ "link", HP.href $ present link] titleNodes])
       maybeLink
 
 viewEditLink
@@ -811,7 +807,7 @@ viewEditLink { file, line } =
         <> show line
 
 viewAuthors
-  :: forall m r
+  :: forall m
    . MonadAff m
   => Now m
   => LogMessages m
@@ -823,7 +819,7 @@ viewAuthors authors maybeFilter =
   HH.span_ $ map (viewAuthor maybeFilter) authors
 
 viewAuthor
-  :: forall m r
+  :: forall m
    . MonadAff m
   => Now m
   => LogMessages m
@@ -833,7 +829,7 @@ viewAuthor
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewAuthor maybeFilter author =
   let
-    str = toHtmlString author
+    str = present author
   in
     HH.span
       [ class_ "author"
@@ -841,11 +837,11 @@ viewAuthor maybeFilter author =
       ]
       (maybe
         [HH.text str]
-        (\filter -> highlightPatches (split filter) str)
+        (highlightPatches str <<< split)
         maybeFilter)
 
 viewYearMaybe
-  :: forall m r
+  :: forall m
    . MonadAff m
   => Now m
   => LogMessages m
@@ -855,11 +851,11 @@ viewYearMaybe
 viewYearMaybe maybeYear =
   maybe
     (HH.text "")
-    (\year -> HH.text $ " [" <> toHtmlString year <> "] ")
+    (\year -> HH.text $ " [" <> present year <> "] ")
     maybeYear
 
 viewCitations
-  :: forall m r
+  :: forall m
    . MonadAff m
   => Now m
   => LogMessages m
@@ -873,7 +869,7 @@ viewCitations citations =
     _text = if count == 0 then "" else " (cited by " <> show count <> ")"
 
 renderSegment
-  :: forall m r
+  :: forall m
    . MonadAff m
   => Now m
   => LogMessages m
@@ -897,10 +893,10 @@ highlightPatches
   => Now m
   => LogMessages m
   => RequestArchive m
-  => Array String
-  -> String
+  => String
+  -> Array String
   -> Array (H.ParentHTML Query ChildQuery ChildSlot m)
-highlightPatches needles haystack =
+highlightPatches haystack needles =
   toArray $ map renderSegment segments
   where
     getSegments :: List String -> String -> List (Either NonMatch Match)
