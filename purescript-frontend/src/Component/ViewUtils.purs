@@ -1,4 +1,4 @@
-module HaskPapers.Component.ViewUtils
+module Apotheka.Component.ViewUtils
   ( class_
   , padLeft3
   ) where

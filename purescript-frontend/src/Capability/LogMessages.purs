@@ -1,4 +1,4 @@
-module HaskPapers.Capability.LogMessages
+module Apotheka.Capability.LogMessages
   ( class LogMessages
   , debugHush
   , log
@@ -12,12 +12,12 @@ module HaskPapers.Capability.LogMessages
 
 import Prelude
 
+import Apotheka.Capability.Now (class Now)
+import Apotheka.Data.Log (Log, LogReason(..), mkLog)
 import Control.Monad.Trans.Class (lift)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Halogen (HalogenM)
-import HaskPapers.Capability.Now (class Now)
-import HaskPapers.Data.Log (Log, LogReason(..), mkLog)
 
 class Monad m <= LogMessages m where
   logMessage :: Log -> m Unit

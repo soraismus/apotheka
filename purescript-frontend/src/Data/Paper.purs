@@ -1,10 +1,15 @@
-module HaskPapers.Data.Paper
+module Apotheka.Data.Paper
   ( Paper
   , decodePaper
   ) where
 
 import Prelude
 
+import Apotheka.Data.Author (Author)
+import Apotheka.Data.Id (Id)
+import Apotheka.Data.Link (Link)
+import Apotheka.Data.Title (Title)
+import Apotheka.Data.Year (Year)
 import Data.Argonaut.Core (Json)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson, (.:), (.:?))
 import Data.Bifunctor (lmap)
@@ -14,11 +19,6 @@ import Data.Map as Map
 import Data.Maybe (Maybe, maybe)
 import Data.Traversable (sequence)
 import Foreign.Object as FO
-import HaskPapers.Data.Author (Author)
-import HaskPapers.Data.Id (Id)
-import HaskPapers.Data.Link (Link)
-import HaskPapers.Data.Title (Title)
-import HaskPapers.Data.Year (Year)
 
 type Paper =
   { titleId :: Id

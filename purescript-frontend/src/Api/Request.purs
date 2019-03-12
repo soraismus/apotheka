@@ -1,4 +1,4 @@
-module HaskPapers.Api.Request
+module Apotheka.Api.Request
   ( BaseURL(..)
   , RequestMethod(..)
   , RequestOptions(..)
@@ -10,12 +10,12 @@ import Prelude
 import Affjax (Request)
 import Affjax.RequestBody as RB
 import Affjax.ResponseFormat as RF
+import Apotheka.Api.Endpoint (Endpoint, endpointCodec)
 import Data.Argonaut.Core (Json)
 import Data.Either (Either(..))
 import Data.HTTP.Method (Method(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import HaskPapers.Api.Endpoint (Endpoint, endpointCodec)
 import Routing.Duplex (print)
 
 newtype BaseURL = BaseURL String

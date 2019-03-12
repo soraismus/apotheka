@@ -1,4 +1,4 @@
-module HaskPapers.Data.Utils
+module Apotheka.Data.Utils
   ( tryGet
   ) where
 

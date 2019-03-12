@@ -1,4 +1,4 @@
-module HaskPapers.Component.Utils
+module Apotheka.Component.Utils
   ( afterDuration
   , deleteWhen
   , getDailyIndex
@@ -7,6 +7,7 @@ module HaskPapers.Component.Utils
 
 import Prelude
 
+import Apotheka.Capability.Now (class Now, nowDate)
 import Data.Array (deleteAt, elemIndex, findIndex)
 import Data.Date (Date, canonicalDate, diff)
 import Data.Date.Component (Month(..))
@@ -15,7 +16,6 @@ import Data.Int (fromNumber)
 import Data.Maybe (Maybe, fromJust, fromMaybe, isJust, maybe)
 import Data.Time.Duration (Days(..))
 import Effect (Effect)
-import HaskPapers.Capability.Now (class Now, nowDate)
 import Partial.Unsafe (unsafePartial)
 
 foreign import afterDuration :: Int -> Effect Unit -> Effect (Effect Unit)

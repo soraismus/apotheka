@@ -1,4 +1,4 @@
-module HaskPapers.Capability.Now
+module Apotheka.Capability.Now
   ( class Now
   , now
   , nowDate

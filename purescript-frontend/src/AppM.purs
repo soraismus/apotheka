@@ -1,4 +1,4 @@
-module HaskPapers.AppM where
+module Apotheka.AppM where
 
 import Prelude
 
@@ -10,20 +10,20 @@ import Control.Monad.Reader.Trans
   , runReaderT
   )
 
+import Apotheka.Api.Endpoint (Endpoint(..))
+import Apotheka.Api.Request (BaseURL, RequestMethod(..))
+import Apotheka.Api.Utils (decode, mkRequest)
+import Apotheka.Capability.LogMessages (class LogMessages)
+import Apotheka.Capability.Now (class Now)
+import Apotheka.Capability.RequestArchive (class RequestArchive)
+import Apotheka.Data.Archive (decodeArchive)
+import Apotheka.Data.Log as Log
+import Apotheka.Data.WrappedDate (WrappedDate(..))
 import Effect.Aff (Aff)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 import Effect.Now as Now
-import HaskPapers.Api.Endpoint (Endpoint(..))
-import HaskPapers.Api.Request (BaseURL, RequestMethod(..))
-import HaskPapers.Api.Utils (decode, mkRequest)
-import HaskPapers.Capability.LogMessages (class LogMessages)
-import HaskPapers.Capability.Now (class Now)
-import HaskPapers.Capability.RequestArchive (class RequestArchive)
-import HaskPapers.Data.Archive (decodeArchive)
-import HaskPapers.Data.Log as Log
-import HaskPapers.Data.WrappedDate (WrappedDate(..))
 import Type.Equality (class TypeEquals, from)
 
 data LogLevel = Dev | Prod

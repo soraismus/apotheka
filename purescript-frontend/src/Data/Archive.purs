@@ -1,23 +1,23 @@
-module HaskPapers.Data.Archive
+module Apotheka.Data.Archive
   ( Archive(..)
   , decodeArchive
   ) where
 
 import Prelude
 
+import Apotheka.Data.Author (Author)
+import Apotheka.Data.Id (Id)
+import Apotheka.Data.Link (Link)
+import Apotheka.Data.Paper (Paper, decodePaper)
+import Apotheka.Data.Title (Title)
+import Apotheka.Data.Utils (tryGet)
+import Apotheka.Data.Year (Year)
 import Data.Argonaut.Core (Json)
 import Data.Argonaut.Decode (decodeJson, (.:))
 import Data.Either (Either)
 import Data.Map (Map)
 import Data.Set (Set)
 import Foreign.Object as FO
-import HaskPapers.Data.Author (Author)
-import HaskPapers.Data.Id (Id)
-import HaskPapers.Data.Link (Link)
-import HaskPapers.Data.Paper (Paper, decodePaper)
-import HaskPapers.Data.Title (Title)
-import HaskPapers.Data.Utils (tryGet)
-import HaskPapers.Data.Year (Year)
 
 type Archive =
   { titles :: Map Id Title

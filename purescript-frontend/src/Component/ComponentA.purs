@@ -1,4 +1,4 @@
-module HaskPapers.Component.ComponentA where
+module Apotheka.Component.ComponentA where
 
 import Prelude
 

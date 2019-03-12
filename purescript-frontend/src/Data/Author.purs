@@ -1,4 +1,4 @@
-module HaskPapers.Data.Author
+module Apotheka.Data.Author
   ( Author
   , parse
   , toString
@@ -6,12 +6,12 @@ module HaskPapers.Data.Author
 
 import Prelude
 
+import Apotheka.Data.Present (class Present)
 import Data.Argonaut.Decode (class DecodeJson)
 import Data.Argonaut.Encode (class EncodeJson)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
-import HaskPapers.Data.Present (class Present)
 
 newtype Author = Author String
 

@@ -1,4 +1,4 @@
-module HaskPapers.Api.Endpoint
+module Apotheka.Api.Endpoint
   ( Endpoint(..)
   , endpointCodec
   ) where

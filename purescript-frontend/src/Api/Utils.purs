@@ -1,4 +1,4 @@
-module HaskPapers.Api.Utils
+module Apotheka.Api.Utils
   ( decode
   , decodeAt
   , mkRequest
@@ -7,15 +7,15 @@ module HaskPapers.Api.Utils
 import Prelude
 
 import Affjax (request)
+import Apotheka.Api.Request (BaseURL, RequestOptions, formJsonRequest)
+import Apotheka.Capability.LogMessages (class LogMessages, logError)
+import Apotheka.Capability.Now (class Now)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut.Core (Json)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson, (.:))
 import Data.Either (Either(..), hush)
 import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff, liftAff)
-import HaskPapers.Api.Request (BaseURL, RequestOptions, formJsonRequest)
-import HaskPapers.Capability.LogMessages (class LogMessages, logError)
-import HaskPapers.Capability.Now (class Now)
 
 decode
   :: forall m a

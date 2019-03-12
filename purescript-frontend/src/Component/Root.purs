@@ -1,12 +1,36 @@
-module HaskPapers.Component.Root
+module Apotheka.Component.Root
   ( Query
   , component
   ) where
 
 import Prelude
 
-import Web.UIEvent.KeyboardEvent (KeyboardEvent, key)
-
+import Apotheka.Capability.LogMessages (class LogMessages, logDebug)
+import Apotheka.Capability.Now (class Now)
+import Apotheka.Capability.RequestArchive
+  ( class RequestArchive
+  , requestArchive
+  )
+import Apotheka.Component.ComponentA as CA
+import Apotheka.Component.ComponentB as CB
+import Apotheka.Component.ComponentC as CC
+import Apotheka.Component.Utils
+  ( afterDuration
+  , deleteWhen
+  , getDailyIndex
+  , inArray
+  )
+import Apotheka.Component.ViewUtils (class_, padLeft3)
+import Apotheka.Data.Archive (Archive)
+import Apotheka.Data.Author (Author)
+import Apotheka.Data.Id (Id)
+import Apotheka.Data.Link (Link)
+import Apotheka.Data.Paper (Paper)
+import Apotheka.Data.Present (present)
+import Apotheka.Data.Title (Title)
+import Apotheka.Data.Year (Year, toInt)
+import Apotheka.Data.WrappedDate (WrappedDate(..))
+import Apotheka.Foreign.Slider (SliderYears, onSliderUpdate)
 import Data.Array ((!!))
 import Data.Array as Array
 import Data.Date (Date)
@@ -39,32 +63,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.EventSource (eventSource', eventSource_')
-import HaskPapers.Capability.LogMessages (class LogMessages, logDebug)
-import HaskPapers.Capability.Now (class Now)
-import HaskPapers.Capability.RequestArchive
-  ( class RequestArchive
-  , requestArchive
-  )
-import HaskPapers.Component.ComponentA as CA
-import HaskPapers.Component.ComponentB as CB
-import HaskPapers.Component.ComponentC as CC
-import HaskPapers.Component.Utils
-  ( afterDuration
-  , deleteWhen
-  , getDailyIndex
-  , inArray
-  )
-import HaskPapers.Component.ViewUtils (class_, padLeft3)
-import HaskPapers.Data.Archive (Archive)
-import HaskPapers.Data.Author (Author)
-import HaskPapers.Data.Id (Id)
-import HaskPapers.Data.Link (Link)
-import HaskPapers.Data.Paper (Paper)
-import HaskPapers.Data.Present (present)
-import HaskPapers.Data.Title (Title)
-import HaskPapers.Data.Year (Year, toInt)
-import HaskPapers.Data.WrappedDate (WrappedDate(..))
-import HaskPapers.Foreign.Slider (SliderYears, onSliderUpdate)
+import Web.UIEvent.KeyboardEvent (KeyboardEvent, key)
 
 data RenderAmount = RenderAll | RenderSome
 

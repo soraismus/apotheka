@@ -1,4 +1,4 @@
-module HaskPapers.Data.Id
+module Apotheka.Data.Id
   ( Id
   , toIdMaybe
   , toInt
@@ -7,12 +7,12 @@ module HaskPapers.Data.Id
 
 import Prelude
 
+import Apotheka.Data.Present (class Present)
 import Data.Argonaut.Decode (class DecodeJson)
 import Data.Argonaut.Encode (class EncodeJson)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
-import HaskPapers.Data.Present (class Present)
 
 newtype Id = Id Int
 

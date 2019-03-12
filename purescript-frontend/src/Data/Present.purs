@@ -1,4 +1,4 @@
-module HaskPapers.Data.Present
+module Apotheka.Data.Present
   (class Present
   , present
   ) where

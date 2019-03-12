@@ -1,16 +1,16 @@
-module HaskPapers.Data.WrappedDate
+module Apotheka.Data.WrappedDate
   ( WrappedDate(..)
   ) where
 
 import Prelude
 
+import Apotheka.Data.Present (class Present)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Date (Date)
 import Data.DateTime (DateTime(..))
 import Data.Either (Either, note)
 import Data.Newtype (class Newtype)
 import Data.RFC3339String (RFC3339String(..), toDateTime)
-import HaskPapers.Data.Present (class Present)
 
 newtype WrappedDate = WrappedDate Date
 

@@ -1,4 +1,4 @@
-module HaskPapers.Foreign.Slider 
+module Apotheka.Foreign.Slider 
   ( Slider
   , SliderYears
   , onSliderUpdate
@@ -6,10 +6,10 @@ module HaskPapers.Foreign.Slider
 
 import Prelude
 
+import Apotheka.Data.Year (Year)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Effect (Effect)
-import HaskPapers.Data.Year (Year)
 
 type Slider =
   { id          :: String        -- The element id to create a slider in.

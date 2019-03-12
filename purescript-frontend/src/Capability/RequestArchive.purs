@@ -1,14 +1,14 @@
-module HaskPapers.Capability.RequestArchive
+module Apotheka.Capability.RequestArchive
   ( class RequestArchive
   , requestArchive
   ) where
 
 import Prelude
 
+import Apotheka.Data.Archive (Archive)
+import Apotheka.Data.WrappedDate (WrappedDate)
 import Data.Maybe (Maybe)
 import Control.Monad.Trans.Class (lift)
-import HaskPapers.Data.Archive (Archive)
-import HaskPapers.Data.WrappedDate (WrappedDate)
 import Halogen (HalogenM)
 
 class Monad m <= RequestArchive m where

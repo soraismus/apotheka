@@ -1,4 +1,4 @@
-module HaskPapers.Data.Log
+module Apotheka.Data.Log
   ( Log
   , LogReason(..)
   , message
@@ -9,12 +9,12 @@ module HaskPapers.Data.Log
 
 import Prelude
 
+import Apotheka.Capability.Now (class Now, nowDateTime)
 import Data.DateTime (DateTime)
 import Data.Either (either)
 import Data.Formatter.DateTime (formatDateTime)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
-import HaskPapers.Capability.Now (class Now, nowDateTime)
 
 data LogReason = Debug | Info | Warn | Error
 
