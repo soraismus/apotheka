@@ -515,9 +515,6 @@ updateForFilters getFilters state =
 view
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => StateRec
   -> H.ParentHTML Query ChildQuery ChildSlot m
 view stateRec@{ dailyIndex, papers, selectedPapers } =
@@ -532,9 +529,6 @@ view stateRec@{ dailyIndex, papers, selectedPapers } =
 viewHeader
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Int
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewHeader n =
@@ -555,9 +549,6 @@ viewHeader n =
 viewFilters
   :: forall m r
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => { title :: String
      , author :: String
      , facets :: Array { name :: String, titleIds :: Set Id }
@@ -576,9 +567,6 @@ viewFilters { title, author, facets } =
 viewIncludeUnknown
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => H.ParentHTML Query ChildQuery ChildSlot m
 viewIncludeUnknown = HH.div
   [ class_ "include-unknown" ]
@@ -594,9 +582,6 @@ viewIncludeUnknown = HH.div
 viewTitleSearchBox
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => String
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewTitleSearchBox _filter =
@@ -614,9 +599,6 @@ viewTitleSearchBox _filter =
 viewAuthorSearchBox
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => String
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewAuthorSearchBox authorName =
@@ -649,9 +631,6 @@ infixr 5 pushMap as >.>
 viewFacet
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => String
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewFacet str =
@@ -664,9 +643,6 @@ viewFacet str =
 viewFacets
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Array String
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewFacets strs =
@@ -677,9 +653,6 @@ viewFacets strs =
 viewPaperOfTheDay
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Int
   -> Array Paper
   -> H.ParentHTML Query ChildQuery ChildSlot m
@@ -692,9 +665,6 @@ viewPaperOfTheDay index papers =
 _viewPaperOfTheDay
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Paper
   -> H.ParentHTML Query ChildQuery ChildSlot m
 _viewPaperOfTheDay paper = do
@@ -716,9 +686,6 @@ _viewPaperOfTheDay paper = do
 viewPapers
   :: forall m r0 r1
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => { selectedPapers :: Array Paper
      , filters
          :: { title :: String
@@ -739,9 +706,6 @@ viewPapers { selectedPapers, filters } =
 viewPaper
   :: forall m r
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => { title :: String, author :: String | r }
   -> Paper
   -> H.ParentHTML Query ChildQuery ChildSlot m
@@ -761,9 +725,6 @@ viewPaper { author, title } paper =
 viewTitle
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Title
   -> Maybe Link
   -> Maybe String
@@ -785,9 +746,6 @@ viewTitle title maybeLink maybeFilter =
 viewEditLink
   :: forall m r
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => { file :: Int, line :: Int | r }
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewEditLink { file, line } =
@@ -808,9 +766,6 @@ viewEditLink { file, line } =
 viewAuthors
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Array Author
   -> Maybe String
   -> H.ParentHTML Query ChildQuery ChildSlot m
@@ -820,9 +775,6 @@ viewAuthors authors maybeFilter =
 viewAuthor
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Maybe String
   -> Author
   -> H.ParentHTML Query ChildQuery ChildSlot m
@@ -842,9 +794,6 @@ viewAuthor maybeFilter author =
 viewYearMaybe
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Maybe Year
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewYearMaybe maybeYear =
@@ -856,9 +805,6 @@ viewYearMaybe maybeYear =
 viewCitations
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Array Title
   -> H.ParentHTML Query ChildQuery ChildSlot m
 viewCitations citations =
@@ -870,9 +816,6 @@ viewCitations citations =
 renderSegment
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => Either NonMatch Match
   -> H.ParentHTML Query ChildQuery ChildSlot m
 renderSegment =
@@ -889,9 +832,6 @@ toList array = List.fromFoldable array
 highlightPatches
   :: forall m
    . MonadAff m
-  => Now m
-  => LogMessages m
-  => RequestArchive m
   => String
   -> Array String
   -> Array (H.ParentHTML Query ChildQuery ChildSlot m)
