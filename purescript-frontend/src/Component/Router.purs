@@ -9,6 +9,7 @@ import Prelude
 import Apotheka.Capability.LogMessages (class LogMessages)
 import Apotheka.Capability.Navigate (class Navigate)
 import Apotheka.Capability.Now (class Now)
+import Apotheka.Capability.RequestArchive (class RequestArchive)
 import Apotheka.Capability.Resource.User (class ManageUser)
 import Apotheka.Data.Profile (Profile)
 import Apotheka.Data.Route (Route(Home, Login, Register))
@@ -49,6 +50,7 @@ component
   => LogMessages m
   => Navigate m
   => ManageUser m
+  => RequestArchive m
   => H.Component HH.HTML Query Input Void m
 component =
   H.parentComponent

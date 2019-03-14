@@ -5,17 +5,27 @@ module Apotheka.Page.Home
 
 import Prelude hiding (div)
 
+import Apotheka.Capability.LogMessages (class LogMessages, logDebug)
 import Apotheka.Capability.Navigate (class Navigate, navigate)
+import Apotheka.Capability.Now (class Now)
+import Apotheka.Capability.RequestArchive (class RequestArchive, requestArchive)
 import Apotheka.Component.HTML.RwFooter (viewRwFooter)
 import Apotheka.Component.HTML.RwHeader (viewRwHeader)
 import Apotheka.Component.HTML.Utils (_class, whenElem)
+import Apotheka.Component.Root as Root
 import Apotheka.Data.Profile (Profile)
 import Apotheka.Data.Route (Route(Home))
 import Control.Monad.Reader (class MonadAsk)
 import Data.Maybe (Maybe(Just, Nothing), isNothing)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Ref (Ref)
-import Halogen (Component, ComponentHTML, ComponentDSL, action, lifecycleComponent)
+import Halogen
+  ( Component
+  , ComponentHTML
+  , ComponentDSL
+  , action
+  , lifecycleParentComponent
+  )
 import Halogen as H
 import Halogen.HTML (div, div_, h1, p_, text)
 import Halogen.HTML as HH
@@ -29,11 +39,14 @@ type State =
 component
   :: forall m r
    . MonadAff m
+  => LogMessages m
+  => Now m
+  => RequestArchive m
   => MonadAsk { currentUser :: Ref (Maybe Profile) | r } m
   => Navigate m
   => Component HH.HTML Query Unit Void m
 component =
-  lifecycleComponent
+  lifecycleParentComponent
     { initialState: const { currentUser: Nothing }
     , render
     , eval
@@ -43,38 +56,18 @@ component =
     }
   where
 
-  eval :: Query ~> ComponentDSL State Query Void m
+  eval :: Query ~> H.ParentDSL State Query Root.Query Unit Void m
   eval (Initialize next) = do
     navigate Home
     pure next
 
-  render :: State -> ComponentHTML Query
+  render :: State -> H.ParentHTML Query Root.Query Unit m
   render state@{ currentUser } =
     div_
     [ viewRwHeader currentUser Home
-    , viewBody state
+    , HH.slot unit Root.component unit absurd
     , viewRwFooter
     ]
-
-  viewBody :: forall i p. State -> H.HTML i p
-  viewBody state@{ currentUser } =
-    div
-      [ _class "home-page" ]
-      [ whenElem (isNothing currentUser) \_ -> banner
-      , div
-        [ _class "container page" ]
-        [ div
-          [ _class "row" ]
-          [ mainView state
-          , div
-            [ _class "col-md-3" ]
-            [ div
-              [ _class "sidebar" ]
-              [ p_ [ text "Popular Tags" ]]
-            ]
-          ]
-        ]
-      ]
 
   mainView :: forall i p. State -> H.HTML i p
   mainView state =
