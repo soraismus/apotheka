@@ -2,17 +2,15 @@ module Apotheka.Component.HTML.PaperOfTheDay
   ( viewPaperOfTheDay
   ) where
 
-import Prelude
+import Prelude hiding (div)
 
 import Apotheka.Component.HTML.Paper (viewPaper)
-import Apotheka.Component.HTML.Utils (_class, maybeElem)
 import Apotheka.Data.Author (Author)
 import Apotheka.Data.Paper (Paper)
 import Data.Maybe (Maybe(Nothing), maybe)
 import Data.Tuple (uncurry)
 import Halogen (HTML)
 import Halogen.HTML (div, div_, h3_, text)
-import Halogen.HTML.Properties (href)
 
 viewPaperOfTheDay
   :: forall i p
