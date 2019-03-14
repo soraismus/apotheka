@@ -52,7 +52,13 @@ component =
   render state@{ currentUser } =
     div_
     [ viewRwHeader currentUser Home
-    , div
+    , viewBody state
+    , viewRwFooter
+    ]
+
+  viewBody :: forall i p. State -> H.HTML i p
+  viewBody state@{ currentUser } =
+    div
       [ _class "home-page" ]
       [ whenElem (isNothing currentUser) \_ -> banner
       , div
@@ -69,10 +75,8 @@ component =
           ]
         ]
       ]
-    , viewRwFooter
-    ]
 
-  mainView :: forall i. State -> H.HTML i Query
+  mainView :: forall i p. State -> H.HTML i p
   mainView state =
     div
     [ _class "col-md-9" ]
