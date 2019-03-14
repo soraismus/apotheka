@@ -1,5 +1,5 @@
 module Apotheka.Api.Endpoint
-  ( Endpoint(..)
+  ( Endpoint(Archive, Login, User, Users)
   , endpointCodec
   ) where
 
@@ -11,7 +11,11 @@ import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
-data Endpoint = ArchiveEndpoint
+data Endpoint
+  = Archive
+  | Login
+  | User
+  | Users
 
 derive instance genericEndpoint :: Generic Endpoint _
 
@@ -20,4 +24,9 @@ instance showEndpoint :: Show Endpoint where
 
 endpointCodec :: RouteDuplex' Endpoint
 endpointCodec =
-  root $ sum { "ArchiveEndpoint": "papers.json" / noArgs }
+  root $ sum
+    { "Archive": "papers.json" / noArgs
+    , "Login":   "users"       / "login" / noArgs
+    , "User":    "user"        / noArgs
+    , "Users":   "users"       / noArgs
+    }
