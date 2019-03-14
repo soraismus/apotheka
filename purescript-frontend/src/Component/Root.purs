@@ -7,63 +7,45 @@ import Prelude
 
 import Apotheka.Capability.LogMessages (class LogMessages, logDebug)
 import Apotheka.Capability.Now (class Now)
-import Apotheka.Capability.RequestArchive
-  ( class RequestArchive
-  , requestArchive
-  )
-import Apotheka.Component.ComponentA as CA
-import Apotheka.Component.ComponentB as CB
-import Apotheka.Component.ComponentC as CC
-import Apotheka.Component.Utils
-  ( afterDuration
-  , deleteWhen
-  , getDailyIndex
-  , inArray
-  )
-import Apotheka.Component.ViewUtils (class_, padLeft3)
+import Apotheka.Capability.RequestArchive (class RequestArchive, requestArchive)
+import Apotheka.Component.HTML.Utils (_class)
+import Apotheka.Component.Utils (afterDuration, getDailyIndex, split)
+import Apotheka.Component.HTML.Header (viewHeader)
+import Apotheka.Component.HTML.Filtering as Filtering
+import Apotheka.Component.HTML.PaperList (viewPaperList)
+import Apotheka.Component.HTML.PaperOfTheDay (viewPaperOfTheDay)
 import Apotheka.Data.Archive (Archive)
 import Apotheka.Data.Author (Author)
 import Apotheka.Data.Id (Id)
-import Apotheka.Data.Link (Link)
 import Apotheka.Data.Paper (Paper)
 import Apotheka.Data.Present (present)
-import Apotheka.Data.Title (Title)
 import Apotheka.Data.Year (Year, toInt)
-import Apotheka.Data.WrappedDate (WrappedDate(..))
+import Apotheka.Data.WrappedDate (WrappedDate(WrappedDate))
 import Apotheka.Foreign.Slider (SliderYears, onSliderUpdate)
 import Data.Array ((!!))
 import Data.Array as Array
 import Data.Date (Date)
-import Data.Either (Either(..), hush, either)
-import Data.Either.Nested (Either3)
-import Data.Filterable (filterMap, maybeBool)
-import Data.Foldable (all, any, foldM, foldr)
+import Data.Either (Either(Left, Right), either)
+import Data.Foldable (all, foldM, foldr, for_)
 import Data.FoldableWithIndex (foldrWithIndex)
-import Data.Functor.Coproduct.Nested (Coproduct3)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
-import Data.List (List(..), (:))
-import Data.List as List
+import Data.List (List(Nil), (:))
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(Just, Nothing), maybe)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.String as String
-import Data.String.CodeUnits as SCU
-import Data.String.Pattern (Pattern(..))
 import Data.String.Regex (Regex)
 import Data.String.Regex as Regex
 import Data.String.Regex.Flags (ignoreCase)
-import Data.Tuple (Tuple(..))
-import DOM.HTML.Indexed.InputType as InputType
+import Data.Tuple (Tuple(Tuple))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
 import Halogen.Query.EventSource (eventSource', eventSource_')
-import Web.UIEvent.KeyboardEvent (KeyboardEvent, key)
 
 data RenderAmount = RenderAll | RenderSome
 
@@ -73,30 +55,18 @@ instance showRenderAmount :: Show RenderAmount where
   show = genericShow
 
 type StateRec =
-  { now :: Date
-  , papers :: Array Paper
-  , ids :: Set Id
-  , dailyIndex :: Int
-  , authors :: Map Id Author
+  { authors :: Map Id Author
   , authorsIndex :: Map Id (Set Id)
-  , overallMinYear :: Year
+  , dailyIndex :: Int
+  , ids :: Set Id
+  , filters :: { author :: String, title :: String }
+  , years :: { max :: Year, min :: Year }
+  , now :: Date
+  , papers :: Array Paper
   , overallMaxYear :: Year
+  , overallMinYear :: Year
+  , renderAmount :: RenderAmount
   , selectedPapers :: Array Paper 
-  , filters ::
-      { title :: String
-      , idsForTitle :: Set Id
-      , author :: String
-      , facets :: Array { name :: String, titleIds :: Set Id }
-      , idsForAuthor :: Set Id
-      , includeUnknown :: Boolean
-      , minYear :: Year
-      , maxYear :: Year
-      , renderAmount :: RenderAmount
-      , isIrrelevant :: { title :: Boolean
-                        , author :: Boolean
-                        , facet :: Boolean
-                        }
-      }
   }
 
 data State
@@ -113,23 +83,20 @@ instance showState :: Show State where
 data Query a
   = RequestArchive a
   | RenderMore (H.SubscribeStatus -> a)
-  | FilterByTitle String a
-  | FilterByAuthor String a
   | AddFacet Author a
-  | AddFacetFromFilter a
-  | RemoveFacet String a
   | FilterByYear SliderYears (H.SubscribeStatus -> a)
-  | SetIncludeUnknown Boolean a
+  | HandleFilteringUpdate Filtering.Message a
 
-type ChildQuery = Coproduct3 CA.Query CB.Query CC.Query
+data FilteringSlot = FilteringSlot
 
-type ChildSlot = Either3 Unit Unit Unit
+derive instance eqFilteringSlot  :: Eq  FilteringSlot
+derive instance ordFilteringSlot :: Ord FilteringSlot
 
 component
   :: forall m
    . MonadAff m
-  => Now m
   => LogMessages m
+  => Now m
   => RequestArchive m
   => H.Component HH.HTML Query Unit Void m
 component =
@@ -144,7 +111,7 @@ component =
   initialState :: State
   initialState = NotAsked
 
-  render :: State -> H.ParentHTML Query ChildQuery ChildSlot m
+  render :: State -> H.ParentHTML Query Filtering.Query FilteringSlot m
   render NotAsked = HH.div_
     [ HH.text "NotAsked"
     , HH.button
@@ -155,104 +122,62 @@ component =
   render (Loaded stateRec) = view stateRec
   render LoadError = HH.text "LoadError"
 
-  eval :: Query ~> H.ParentDSL State Query ChildQuery ChildSlot Void m
+  eval :: Query ~> H.ParentDSL State Query Filtering.Query FilteringSlot Void m
+
   eval (RequestArchive next) = do
     H.put Loading
     requestArchive >>= case _ of
       Just response -> evalResponse response next
       Nothing       -> H.put LoadError *> pure next
+
   eval (RenderMore reply) = do
     logDebug "RenderMore"
-    H.modify_ $ updateForFilters \stateRec ->
-      stateRec.filters { renderAmount = RenderAll }
+    mFilterState <- H.query FilteringSlot $ H.request Filtering.RequestState
+    for_ mFilterState (\filterState ->
+      H.modify_ $ mapState (\stateRec@{ papers, years } ->
+        stateRec
+          { renderAmount = RenderAll
+          , selectedPapers =
+              filter filterState { papers, renderAmount: RenderAll, years }
+          }))
     pure $ reply H.Done
-  eval (FilterByTitle string next) = do
-    logDebug $ "FilterByTitle: " <> string
-    H.modify_ $ updateForFilters \stateRec ->
-      stateRec.filters
-        { title = string
-        , idsForTitle = getIdsForTitle stateRec.ids string stateRec.papers
-        , isIrrelevant { title = String.null $ String.trim string }
-        }
-    pure next
-  eval (FilterByAuthor string next) = do
-    logDebug $ "FilterByAuthor: " <> string
-    H.modify_ $ updateForFilters \stateRec ->
-      stateRec.filters
-        { author = string
-        , idsForAuthor = getIdsForAuthor stateRec.ids string stateRec.papers
-        , isIrrelevant { author = String.null $ String.trim string }
-        }
-    pure next
-  eval (AddFacetFromFilter next) = do
-    logDebug "AddFacetFromFilter"
-    H.modify_ $ updateForFilters \stateRec ->
-      let
-        filters = stateRec.filters
-        name = filters.author
-        ids = filters.idsForAuthor
-        facets = filters.facets
-      in
-        if String.null name
-          then filters
-          else filters { author = ""
-                       , idsForAuthor = Set.empty
-                       , facets = getFacets name ids facets
-                       , isIrrelevant { author = true, facet = false }
-                       }
-    pure next
+
   eval (AddFacet author next) = do
     logDebug $ "AddFacet: " <> show author
-    H.modify_ $ updateForFilters \stateRec ->
-      let
-        authors = stateRec.authors
-        titles = stateRec.authorsIndex
-        filters = stateRec.filters
-        name = filters.author
-        ids = filters.idsForAuthor
-        facets = filters.facets
-      in
-        if inArray (present author) $ map _.name facets
-          then filters
-          else filters
-            { facets =
-                Array.snoc
-                  facets
-                  { name: present author
-                  , titleIds: buildAuthorFilterIds author authors titles
+    state <- H.get
+    forLoaded state (\stateRec -> do
+      let facet = { name: present author
+                  , titleIds: buildAuthorFilterIds author stateRec
                   }
-            , isIrrelevant { facet = false }
-            }
+      void $ H.query FilteringSlot $ H.action $ Filtering.AddFacet facet)
     pure next
-  eval (RemoveFacet string next) = do
-    logDebug $ "RemoveFacet: " <> string
-    H.modify_ $ updateForFilters \stateRec ->
-      let
-        filters = stateRec.filters
-        facets = filters.facets
-      in if inArray string $ map _.name facets
-        then filters
-          { facets = deleteWhen ((_ == string) <<< _.name) facets
-          , isIrrelevant { facet = Array.length facets == 1 }
-          }
-        else filters
-    pure next
+
   eval (FilterByYear sliderYears@(Tuple minYear maxYear) reply) = do
     logDebug $ "FilterByYear -- " <> show sliderYears
-    H.modify_ $ updateForFilters \stateRec ->
-      stateRec.filters { minYear = minYear, maxYear = maxYear }
+    mFilterState <- H.query FilteringSlot $ H.request Filtering.RequestState
+    for_ mFilterState (\filterState -> do
+      let years = { max: maxYear, min: minYear }
+      H.modify_ $ mapState (\stateRec@{ papers, renderAmount } ->
+        stateRec
+         { years = years
+         , selectedPapers = filter filterState { papers, renderAmount, years }
+         }))
     pure $ reply H.Listening
-  eval (SetIncludeUnknown includeUnknown next) = do
-    logDebug $ "SetIncludeUnknown " <> show includeUnknown
-    H.modify_ $ updateForFilters \stateRec ->
-      stateRec.filters { includeUnknown = includeUnknown }
+
+  eval (HandleFilteringUpdate (Filtering.Update filterState) next) = do
+    logDebug "HandleFilteringUpdate"
+    H.modify_ $ mapState (\stateRec ->
+      stateRec
+        { filters { author = filterState.author, title = filterState.title }
+        , selectedPapers = filter filterState stateRec
+        })
     pure next
 
   evalResponse
     :: forall a
     . { archive :: Archive, date :: WrappedDate }
     -> a
-    -> H.ParentDSL State Query ChildQuery ChildSlot Void m a
+    -> H.ParentDSL State Query Filtering.Query FilteringSlot Void m a
   evalResponse response next = do
     let paperCount = Array.length response.archive.papers
     dailyIndex <- getDailyIndex paperCount
@@ -280,22 +205,15 @@ component =
       (H.request RenderMore)
     pure next
 
-getFacets
-  :: String
-  -> Set Id
-  -> Array { name :: String, titleIds :: Set Id }
-  -> Array { name :: String, titleIds :: Set Id }
-getFacets name ids facets =
-  if inArray name $ map _.name facets
-    then facets
-    else Array.snoc facets { name: name, titleIds: ids }
-
 buildAuthorFilterIds
-  :: Author
-  -> Map Id Author
-  -> Map Id (Set Id)
+  :: forall r
+   . Author
+  -> { authors      :: Map Id Author
+     , authorsIndex :: Map Id (Set Id)
+     | r
+     }
   -> Set Id
-buildAuthorFilterIds author authors authorsIndex
+buildAuthorFilterIds author { authors, authorsIndex }
   | String.null $ String.trim $ present author = Set.empty
   | otherwise =
       either (const Set.empty) identity do
@@ -327,149 +245,81 @@ buildAuthorFilterIds author authors authorsIndex
           Just _ids -> Set.union ids' _ids
         else ids'
 
-getIdsForTitle :: Set Id -> String -> Array Paper -> Set Id
-getIdsForTitle ids str papers
-  | String.null $ String.trim str = ids
-  | otherwise =
-      either (const Set.empty) identity do
-        regexes <- getRegexes str
-        let _reduce = reduce regexes
-        pure $ foldr _reduce Set.empty papers
-  where
-    _getRegexes :: Array String -> Either String (List Regex)
-    _getRegexes =
-      foldM
-        (\_regexes _str -> case Regex.regex _str ignoreCase of
-            Left _error -> Left $ "Error on '" <> _str <> "': " <> _error
-            Right _regex -> Right $ (_regex : _regexes))
-        Nil
-
-    getRegexes :: String -> Either String (List Regex)
-    getRegexes = _getRegexes <<< split
-
-    reduce :: List Regex -> Paper -> Set Id -> Set Id
-    reduce regexes' paper' ids' =
-      let _str = present paper'.title
-      in if all (\_regex -> Regex.test _regex _str) regexes'
-           then Set.insert paper'.titleId ids'
-           else ids'
-
-getIdsForAuthor :: Set Id -> String -> Array Paper -> Set Id
-getIdsForAuthor ids str papers
-  | String.null $ String.trim str = ids
-  | otherwise =
-      either (const Set.empty) identity do
-        regexes <- getRegexes str
-        let _reduce = reduce regexes
-        pure $ foldr _reduce Set.empty papers
-  where
-    _getRegexes :: Array String -> Either String (List Regex)
-    _getRegexes =
-      foldM
-        (\_regexes _str -> case Regex.regex _str ignoreCase of
-            Left _error -> Left $ "Error on '" <> _str <> "': " <> _error
-            Right _regex -> Right $ (_regex : _regexes))
-        Nil
-
-    getRegexes :: String -> Either String (List Regex)
-    getRegexes = _getRegexes <<< split
-
-    match :: List Regex -> Array Author -> Boolean
-    match regexes' authors' =
-      all
-        (\_regex ->
-          any
-            (\_author -> Regex.test _regex $ present _author)
-            authors')
-        regexes'
-
-    reduce :: List Regex -> Paper -> Set Id -> Set Id
-    reduce regexes' paper' ids' =
-      if match regexes' paper'.authors
-        then Set.insert paper'.titleId ids'
-        else ids'
-
-getAllIds :: Array Paper -> Set Id
-getAllIds = foldr (Set.insert <<< _.titleId) Set.empty
-
 convert :: Int -> { archive :: Archive, date :: WrappedDate } -> StateRec
 convert index { archive, date: WrappedDate _date } =
   let
     ids = getAllIds archive.papers
   in
-    { now: _date
-    , authors: archive.authors
+    { authors: archive.authors
     , authorsIndex: archive.authorsIndex
     , dailyIndex: index
-    , papers: archive.papers
+    , filters: { author: "", title: "" }
     , ids
-    , overallMinYear: archive.minYear
+    , years: { max: archive.maxYear, min: archive.minYear }
+    , now: _date
     , overallMaxYear: archive.maxYear
+    , overallMinYear: archive.minYear
+    , papers: archive.papers
     , selectedPapers: archive.papers
-    , filters:
-      { title: ""
-      , idsForTitle: ids
-      , author: ""
-      , facets: []
-      , idsForAuthor: ids
-      , includeUnknown: true
-      , minYear: archive.minYear
-      , maxYear: archive.maxYear
-      , renderAmount: RenderSome
-      , isIrrelevant: { title: true
-                      , author: true
-                      , facet: true
-                      }
-      }
+    , renderAmount: RenderSome
     }
 
 filter
-  :: forall r0 r1
-   . { idsForAuthor :: Set Id
+  :: forall r0 r1 r2 r3 r4
+   . { facets :: Array { titleIds :: Set Id | r0 }
+     , idsForAuthor :: Set Id
      , idsForTitle :: Set Id
-     , facets :: Array { titleIds :: Set Id | r0 }
      , includeUnknown :: Boolean
-     , minYear :: Year
-     , maxYear :: Year
-     , renderAmount :: RenderAmount
-     , isIrrelevant :: { title :: Boolean
-                       , author :: Boolean
+     , isIrrelevant :: { author :: Boolean
                        , facet :: Boolean
+                       , title :: Boolean
+                       | r1
                        }
-     | r1
+     | r2
      }
+  -> { papers :: Array Paper 
+     , renderAmount :: RenderAmount
+     , years :: { max :: Year, min :: Year | r3 }
+     | r4
+    }
   -> Array Paper
-  -> Array Paper
-filter record@{ renderAmount } = case renderAmount of
-    RenderSome -> _filter <<< Array.take 25
-    RenderAll  -> _filter
+filter filterState { renderAmount, papers, years } = case renderAmount of
+    RenderSome -> _filter $ Array.take 25 papers
+    RenderAll  -> _filter papers
   where
-    _filter = Array.filter $ isSelected record
+    _filter = Array.filter $ isSelected filterState years
+
+forLoaded :: forall m. Monad m => State -> (StateRec -> m Unit) -> m Unit
+forLoaded (Loaded stateRec) f = f stateRec
+forLoaded _                 _ = pure unit
+
+getAllIds :: Array Paper -> Set Id
+getAllIds = foldr (Set.insert <<< _.titleId) Set.empty
 
 isSelected
-  :: forall r0 r1
-   . { idsForAuthor :: Set Id
+  :: forall r0 r1 r2 r3
+   . { facets :: Array { titleIds :: Set Id | r0 }
+     , idsForAuthor :: Set Id
      , idsForTitle :: Set Id
-     , facets :: Array { titleIds :: Set Id | r0 }
      , includeUnknown :: Boolean
-     , minYear :: Year
-     , maxYear :: Year
-     , isIrrelevant :: { title :: Boolean
-                       , author :: Boolean
+     , isIrrelevant :: { author :: Boolean
                        , facet :: Boolean
+                       , title :: Boolean
+                       | r1
                        }
-     | r1
+     | r2
      }
+  -> { max :: Year, min :: Year | r3 }
   -> Paper
   -> Boolean
-isSelected filters@{ facets, includeUnknown, minYear, maxYear } paper =
+isSelected filters@{ facets, includeUnknown } { max, min } paper =
   let
     id = paper.titleId
 
     isIrrelevant = filters.isIrrelevant
 
     isYearSelected = maybe includeUnknown
-      (\year -> year >= minYear && year <= maxYear)
+      (\year -> year >= min && year <= max)
       paper.yearMaybe
   in
     isYearSelected
@@ -481,361 +331,23 @@ mapState :: (StateRec -> StateRec) -> State -> State
 mapState f (Loaded stateRec) = Loaded $ f stateRec
 mapState f state             = state
 
-updateForFilters
-  :: (  StateRec
-     -> { title :: String
-        , idsForTitle :: Set Id
-        , author :: String
-        , facets :: Array { name :: String, titleIds :: Set Id }
-        , idsForAuthor :: Set Id
-        , includeUnknown :: Boolean
-        , minYear :: Year
-        , maxYear :: Year
-        , renderAmount :: RenderAmount
-        , isIrrelevant :: { title :: Boolean
-                          , author :: Boolean
-                          , facet :: Boolean
-                          }
-        }
-     )
-  -> State
-  -> State
-updateForFilters getFilters state =
-  mapState
-    (\stateRec ->
-      let
-        filters = getFilters stateRec
-      in
-        stateRec
-          { selectedPapers = filter filters stateRec.papers
-          , filters = filters
-          })
-    state
-
 view
-  :: forall i. StateRec -> H.HTML i Query
-view stateRec@{ dailyIndex, papers, selectedPapers } =
+  :: forall m
+   . MonadAff m
+  => LogMessages m
+  => Now m
+  => RequestArchive m
+  => StateRec
+  -> H.ParentHTML Query Filtering.Query FilteringSlot m
+view stateRec@{ dailyIndex, ids, papers, selectedPapers } =
   HH.div
-    [ class_ "container" ]
+    [ _class "container" ]
     [ viewHeader $ Array.length selectedPapers
-    , viewPaperOfTheDay dailyIndex papers
-    , viewFilters stateRec.filters
-    , viewPapers stateRec
+    , viewPaperOfTheDay AddFacet (papers !! dailyIndex)
+    , HH.slot
+        FilteringSlot
+        Filtering.component
+        { ids, papers }
+        (HE.input HandleFilteringUpdate)
+    , viewPaperList AddFacet stateRec
     ]
-
-viewHeader :: forall i p. Int -> H.HTML i p
-viewHeader n =
-  HH.header_
-    [ HH.h1_
-      [ HH.text
-          $  show n
-          <> " Haskell Paper"
-          <> if n == 1 then "" else "s"
-      ]
-    , HH.a
-      [ class_ "sutble-link"
-      , HP.href "https://github.com/mitchellwrosen/haskell-papers"
-      ]
-      [ HH.div_ [ HH.text "contribute on GitHub" ]]
-    ]
-
-viewFilters
-  :: forall i r
-   . { title :: String
-     , author :: String
-     , facets :: Array { name :: String, titleIds :: Set Id }
-     | r
-     }
-  -> H.HTML i Query
-viewFilters { title, author, facets } =
-  HH.p_
-    [ viewTitleSearchBox title
-    , viewAuthorSearchBox author
-    , viewFacets $ map _.name facets
-    , viewIncludeUnknown
-    , HH.div [ HP.id_ "year-slider" ] []
-    ]
-
-viewIncludeUnknown :: forall i. H.HTML i Query
-viewIncludeUnknown = HH.div
-  [ class_ "include-unknown" ]
-  [ HH.input
-    [ class_ "include-unknown-checkbox"
-    , HP.type_ InputType.InputCheckbox
-    , HP.checked true
-    , HE.onChecked (HE.input SetIncludeUnknown)
-    ]
-  , HH.text "Include papers with unknown year of publication "
-  ]
-
-viewTitleSearchBox :: forall i . String -> H.HTML i Query
-viewTitleSearchBox _filter =
-  HH.div
-    [ class_ "title-search" ]
-    [ HH.input
-      [ class_ "title-search-box"
-      , HP.placeholder "Search titles"
-      , HP.type_ InputType.InputText
-      , HP.value _filter
-      , HE.onValueInput $ HE.input FilterByTitle
-      ]
-    ]
-
-viewAuthorSearchBox :: forall i. String -> H.HTML i Query
-viewAuthorSearchBox authorName =
-  HH.div
-    [ class_ "author-search" ]
-    [ HH.input
-      [ class_ "author-search-box"
-      , HP.placeholder "Search authors"
-      , HP.type_ InputType.InputText
-      , HP.value authorName
-      , HE.onValueInput $ HE.input $ FilterByAuthor
-      , HE.onKeyUp $ (maybeBool isEnter >.> AddFacetFromFilter)
-      ]
-    ]
-
-isEnter :: KeyboardEvent -> Boolean
-isEnter keyboardEvent = (key keyboardEvent) == "Enter"
-
-pushMap
-  :: forall f g a b
-   . Functor f
-  => (a -> f b)
-  -> (forall c. c -> g c)
-  -> a
-  -> f (g Unit)
-pushMap f g = f >>> \fb -> map (const $ g unit) fb
-
-infixr 5 pushMap as >.>
-
-viewFacet :: forall i. String -> H.HTML i Query
-viewFacet str =
-  HH.div
-    [ class_ "facet"
-    , HE.onClick $ HE.input_ $ RemoveFacet str
-    ]
-    [ HH.text str ]
-
-viewFacets :: forall i. Array String -> H.HTML i Query
-viewFacets strs =
-  HH.div
-    [ class_ "facets" ]
-    (map viewFacet strs)
-
-viewPaperOfTheDay :: forall i. Int -> Array Paper -> H.HTML i Query
-viewPaperOfTheDay index papers =
-  maybe
-    (HH.div_ [])
-    _viewPaperOfTheDay
-    (papers !! index)
-
-_viewPaperOfTheDay :: forall i. Paper -> H.HTML i Query
-_viewPaperOfTheDay paper = do
-  HH.div_
-    [ HH.h3_ [ HH.text "Paper of the Day" ]
-    , HH.div
-      [ class_ "paper" ]
-      [ viewTitle paper.title (Array.head paper.links) Nothing
-      , HH.p
-        [ class_ "details" ]
-        [ viewAuthors paper.authors Nothing
-        , viewYearMaybe paper.yearMaybe
-        , viewCitations paper.citations
-        ]
-      , viewEditLink paper.loc
-      ]
-    ]
-
-viewPapers
-  :: forall i r0 r1
-   . { selectedPapers :: Array Paper
-     , filters
-         :: { title :: String
-            , author :: String
-            , minYear :: Year
-            , maxYear :: Year
-            , renderAmount :: RenderAmount
-            | r1
-            }
-     | r0
-     }
-  -> H.HTML i Query
-viewPapers { selectedPapers, filters } =
-  HH.ul
-    [ class_ "paper-list" ]
-    (map (viewPaper filters) selectedPapers)
-
-viewPaper
-  :: forall i r
-   . { title :: String, author :: String | r }
-  -> Paper
-  -> H.HTML i Query
-viewPaper { author, title } paper =
-  HH.li
-    [ class_ "paper" ]
-    [ viewTitle paper.title (Array.head paper.links) (Just title)
-    , HH.p
-      [ class_ "details" ]
-      [ viewAuthors paper.authors (Just author)
-      , viewYearMaybe paper.yearMaybe
-      , viewCitations paper.citations
-      ]
-    , viewEditLink paper.loc
-    ]
-
-viewTitle :: forall i p. Title -> Maybe Link -> Maybe String -> H.HTML i p
-viewTitle title maybeLink maybeFilter =
-  HH.p
-    [ class_ "title" ]
-    linkNodes
-  where
-    titleNodes = maybe
-      [HH.text $ present title]
-      (highlightPatches (present title) <<< split)
-      maybeFilter
-    linkNodes = maybe
-      titleNodes
-      (\link -> [HH.a [class_ "link", HP.href $ present link] titleNodes])
-      maybeLink
-
-viewEditLink
-  :: forall i p r
-   . { file :: Int, line :: Int | r }
-  -> H.HTML i p
-viewEditLink { file, line } =
-  HH.a
-    [ class_ "subtle-link edit"
-    , HP.href editLink
-    ]
-    [ HH.text "(edit)" ]
-  where
-    editLink =
-      "https://github.com"
-        <> "/mitchellwrosen/haskell-papers"
-        <> "/edit/master/papers"
-        <> (padLeft3 $ show file)
-        <> ".yaml#L"
-        <> show line
-
-viewAuthors :: forall i. Array Author -> Maybe String -> H.HTML i Query
-viewAuthors authors maybeFilter =
-  HH.span_ $ map (viewAuthor maybeFilter) authors
-
-viewAuthor
-  :: forall i
-   . Maybe String
-  -> Author
-  -> H.HTML i Query
-viewAuthor maybeFilter author =
-  let
-    str = present author
-  in
-    HH.span
-      [ class_ "author"
-      , HE.onClick $ HE.input_ $ AddFacet author
-      ]
-      (maybe
-        [HH.text str]
-        (highlightPatches str <<< split)
-        maybeFilter)
-
-viewYearMaybe :: forall i p. Maybe Year -> H.HTML i p
-viewYearMaybe maybeYear =
-  maybe
-    (HH.text "")
-    (\year -> HH.text $ " [" <> present year <> "] ")
-    maybeYear
-
-viewCitations :: forall i p. Array Title -> H.HTML i p
-viewCitations citations =
-  HH.text _text
-  where
-    count = Array.length citations
-    _text = if count == 0 then "" else " (cited by " <> show count <> ")"
-
-viewSegment :: forall i p. Either NonMatch Match -> H.HTML i p
-viewSegment =
-  either
-    HH.text
-    (HH.span [ class_ "highlight" ] <<< Array.singleton <<< HH.text)
-
-toArray :: forall a. List a -> Array a
-toArray list = Array.fromFoldable list
-
-toList :: forall a. Array a -> List a
-toList array = List.fromFoldable array
-
-highlightPatches :: forall i p. String -> Array String -> Array (H.HTML i p)
-highlightPatches haystack needles =
-  toArray $ map viewSegment segments
-  where
-    getSegments :: List String -> String -> List (Either NonMatch Match)
-    getSegments =
-      explode
-        <<< (foldr insertInterval Nil)
-        <<< (filterMap ((_ $ haystack) <<< interval))
-
-    segments :: List (Either NonMatch Match)
-    segments = getSegments (toList needles) haystack
-
-interval :: String -> String -> Maybe (Tuple Int Int)
-interval str0 str1
-  | String.null str0 = Nothing
-  | otherwise = do
-      regex <- hush $ Regex.regex str0 ignoreCase
-      index <- Regex.search regex str1
-      pure $ Tuple index (index + String.length str0)
-
-type Interval a = Tuple a a
-
-insertInterval
-  :: forall a
-   . Ord a
-  => Interval a
-  -> List (Interval a)
-  -> List (Interval a)
-insertInterval x_to_y@(Tuple x y) = case _ of
-  Nil -> (Tuple x y) : Nil
-  Cons (Tuple x' y') zs
-    | y < x'    -> (Tuple x y) : (Tuple x' y') : zs
-    | y' < x    -> (Tuple x' y') : insertInterval x_to_y zs
-    | otherwise -> (Tuple (min x x') (max y y')) : zs
-
-type NonMatch = String
-type Match = String
-
-_slice :: Int -> Int -> String -> String
-_slice i j str = fromMaybe "" $ SCU.slice i j str
-
-explode
-  :: List (Tuple Int Int)
-  -> String
-  -> List (Either NonMatch Match)
-explode intervals str = go 0 intervals
-  where
-  go :: Int -> List (Tuple Int Int) -> List (Either NonMatch Match)
-  go n = case _ of
-    Nil ->
-      let
-        length = String.length str
-      in
-        if n == length
-          then Nil
-          else (Left $ _slice n length str) : Nil
-
-    (Cons (Tuple i j) tail) ->
-      if n < i
-        then (Left  $ _slice n i str)
-               : (Right $ _slice i j str)
-               : (go j tail)
-        else (Right $ _slice i j str)
-             : (go j tail)
-
-_split :: String -> Array String
-_split str
-  | String.null str = []
-  | otherwise       = String.split (Pattern " ") str
-
-split :: String -> Array String
-split = _split <<< String.trim

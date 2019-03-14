@@ -3,6 +3,7 @@ module Apotheka.Component.Utils
   , deleteWhen
   , getDailyIndex
   , inArray
+  , split
   ) where
 
 import Prelude
@@ -14,6 +15,8 @@ import Data.Date.Component (Month(..))
 import Data.Enum (toEnum)
 import Data.Int (fromNumber)
 import Data.Maybe (Maybe, fromJust, fromMaybe, isJust, maybe)
+import Data.String as String
+import Data.String.Pattern (Pattern(Pattern))
 import Data.Time.Duration (Days(..))
 import Effect (Effect)
 import Partial.Unsafe (unsafePartial)
@@ -42,11 +45,19 @@ getIndexMaybe max date = do
   int <- fromNumber number
   pure $ int `mod` max
 
+inArray :: forall a. Eq a => a -> Array a -> Boolean
+inArray x xs = isJust $ elemIndex x xs
+
 maybeBaseDate :: Maybe Date
 maybeBaseDate = do
   year <- toEnum 2019
   day <- toEnum 1
   pure $ canonicalDate year January day
 
-inArray :: forall a. Eq a => a -> Array a -> Boolean
-inArray x xs = isJust $ elemIndex x xs
+split :: String -> Array String
+split = _split <<< String.trim
+
+_split :: String -> Array String
+_split str
+  | String.null str = []
+  | otherwise       = String.split (Pattern " ") str
