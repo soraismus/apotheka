@@ -15,12 +15,12 @@ viewHeader n =
     [ h1_
       [ text
           $  show n
-          <> " Haskell Paper"
+          <> " Academic Paper"
           <> if n == 1 then "" else "s"
       ]
     , a
       [ _class "sutble-link"
-      , href "https://github.com/mitchellwrosen/haskell-papers"
+      , href "https://github.com/matthew-hilty/apotheka"
       ]
       [ div_ [ text "contribute on GitHub" ]]
     ]
