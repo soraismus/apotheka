@@ -42,7 +42,7 @@ component =
     }
   where
   render :: State -> ComponentHTML Query
-  render state = text "Home"
+  render state = text "Register"
 
   eval :: Query ~> ComponentDSL State Query Void m
   eval (Initialize next) = pure next

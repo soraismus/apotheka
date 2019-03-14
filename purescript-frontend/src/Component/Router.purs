@@ -1,4 +1,8 @@
-module Apotheka.Component.Router where
+module Apotheka.Component.Router
+  ( Input
+  , Query(Navigate)
+  , component
+  ) where
 
 import Prelude
 
@@ -60,7 +64,7 @@ component =
   eval (Navigate route' next) = do
     { route } <- H.get 
     when (route /= route') do
-      H.modify_ _ { route = route' }
+      H.modify_ (_ { route = route' })
     pure next
 
   render :: State -> H.ParentHTML Query ChildQuery ChildSlot m

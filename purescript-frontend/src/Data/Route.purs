@@ -32,8 +32,8 @@ instance showRoute :: Show Route where
 
 routeCodec :: RouteDuplex' Route
 routeCodec = root $ sum
-  { "Home": noArgs
-  , "Login": "login" / noArgs
+  { "Home":     noArgs
+  , "Login":    "login"    / noArgs
   , "Register": "register" / noArgs
   }
 

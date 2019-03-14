@@ -5,8 +5,9 @@ module Apotheka.Page.Home
 
 import Prelude
 
-import Apotheka.Capability.Navigate (class Navigate)
+import Apotheka.Capability.Navigate (class Navigate, navigate)
 import Apotheka.Data.Profile (Profile)
+import Apotheka.Data.Route (Route(Home))
 import Control.Monad.Reader (class MonadAsk)
 import Data.Maybe (Maybe(Just, Nothing))
 import Effect.Aff.Class (class MonadAff)
@@ -45,4 +46,6 @@ component =
   render state = text "Home"
 
   eval :: Query ~> ComponentDSL State Query Void m
-  eval (Initialize next) = pure next
+  eval (Initialize next) = do
+    navigate Home
+    pure next
