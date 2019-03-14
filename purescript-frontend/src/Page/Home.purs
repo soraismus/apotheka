@@ -11,12 +11,12 @@ import Apotheka.Capability.Now (class Now)
 import Apotheka.Capability.RequestArchive (class RequestArchive)
 import Apotheka.Component.HTML.RwFooter (viewRwFooter)
 import Apotheka.Component.HTML.RwHeader (viewRwHeader)
-import Apotheka.Component.HTML.Utils (_class)
+import Apotheka.Component.HTML.Utils (_class, whenElem)
 import Apotheka.Component.Root as Root
 import Apotheka.Data.Profile (Profile)
 import Apotheka.Data.Route (Route(Home))
 import Control.Monad.Reader (class MonadAsk)
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Just, Nothing), isNothing)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Ref (Ref)
 import Halogen
@@ -63,18 +63,22 @@ component =
   render state@{ currentUser } =
     div_
     [ viewRwHeader currentUser Home
-    , HH.slot unit Root.component unit absurd
+    , viewBody state
     , viewRwFooter
     ]
 
-  mainView :: forall i p. State -> H.HTML i p
-  mainView state =
+  viewBody :: State -> H.ParentHTML Query Root.Query Unit m
+  viewBody state@{ currentUser } =
     div
-    [ _class "col-md-9" ]
-    [ div
-      [ _class "feed-toggle" ]
-      [ text "Feed Toggle" ]
-    ]
+      [ _class "home-page" ]
+      [ whenElem (isNothing currentUser) \_ -> banner
+      , div
+        [ _class "container page" ]
+        [ div
+          [ _class "row" ]
+          [ HH.slot unit Root.component unit absurd ]
+        ]
+      ]
 
   banner :: forall i p. HH.HTML i p
   banner =
@@ -86,6 +90,6 @@ component =
         [ _class "logo-font" ]
         [ text "apotheka" ]
       , p_
-        [ text "A place to share your knowledge." ]
+        [ text "an explorable archive of math and C.S. papers" ]
       ]
     ]
