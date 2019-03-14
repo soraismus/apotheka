@@ -58,22 +58,21 @@ type StateRec =
   { authors :: Map Id Author
   , authorsIndex :: Map Id (Set Id)
   , dailyIndex :: Int
-  , ids :: Set Id
   , filters :: { author :: String, title :: String }
-  , years :: { max :: Year, min :: Year }
+  , ids :: Set Id
   , now :: Date
-  , papers :: Array Paper
   , overallMaxYear :: Year
   , overallMinYear :: Year
+  , papers :: Array Paper
   , renderAmount :: RenderAmount
   , selectedPapers :: Array Paper 
+  , years :: { max :: Year, min :: Year }
   }
 
 data State
-  = NotAsked
-  | Loading
-  | Loaded StateRec
+  = Loaded StateRec
   | LoadError
+  | Loading
 
 derive instance genericState :: Generic State _
 
@@ -81,11 +80,13 @@ instance showState :: Show State where
   show = genericShow
 
 data Query a
-  = RequestArchive a
-  | RenderMore (H.SubscribeStatus -> a)
-  | AddFacet Author a
+  = AddFacet Author a
+  | ConfigureSlider StateRec a
   | FilterByYear SliderYears (H.SubscribeStatus -> a)
   | HandleFilteringUpdate Filtering.Message a
+  | Initialize a
+  | LoadArchive { archive :: Archive, date :: WrappedDate } a
+  | RenderMore (H.SubscribeStatus -> a)
 
 data FilteringSlot = FilteringSlot
 
@@ -100,35 +101,76 @@ component
   => RequestArchive m
   => H.Component HH.HTML Query Unit Void m
 component =
-  H.parentComponent
+  H.lifecycleParentComponent
     { initialState: const initialState
     , render
     , eval
     , receiver: const Nothing
+    , initializer: Just $ H.action Initialize
+    , finalizer: Nothing
     }
   where
 
   initialState :: State
-  initialState = NotAsked
+  initialState = Loading
 
   render :: State -> H.ParentHTML Query Filtering.Query FilteringSlot m
-  render NotAsked = HH.div_
-    [ HH.text "NotAsked"
-    , HH.button
-        [ HE.onClick $ HE.input_ RequestArchive ]
-        [ HH.text "Request archive." ]
-    ]
-  render Loading = HH.text "Loading"
-  render (Loaded stateRec) = view stateRec
+
+  render (Loaded stateRec@{ dailyIndex, ids, papers, selectedPapers }) =
+    HH.div
+      [ _class "container" ]
+      [ viewHeader $ Array.length selectedPapers
+      , viewPaperOfTheDay AddFacet (papers !! dailyIndex)
+      , HH.slot
+          FilteringSlot
+          Filtering.component
+          { ids, papers }
+          (HE.input HandleFilteringUpdate)
+      , viewPaperList AddFacet stateRec
+      ]
+
   render LoadError = HH.text "LoadError"
+
+  render Loading = HH.text "Loading"
 
   eval :: Query ~> H.ParentDSL State Query Filtering.Query FilteringSlot Void m
 
-  eval (RequestArchive next) = do
-    H.put Loading
+  eval (Initialize next) = do
+    logDebug "Initialize"
+    H.subscribe $ eventSource_'
+      (afterDuration 750)
+      (H.request RenderMore)
     requestArchive >>= case _ of
-      Just response -> evalResponse response next
+      Just response -> eval $ LoadArchive response next
       Nothing       -> H.put LoadError *> pure next
+
+  eval (LoadArchive response@{ archive, date } next) = do
+    logDebug "LoadArchive"
+    let paperCount = Array.length archive.papers
+    dailyIndex <- getDailyIndex paperCount
+    let stateRec = convert dailyIndex response
+    H.put $ Loaded stateRec
+    eval (ConfigureSlider stateRec next)
+
+  eval (ConfigureSlider stateRec next) = do
+    logDebug "ConfigureSlider"
+    let min = toInt stateRec.overallMinYear
+    let max = (toInt stateRec.overallMaxYear) + 1
+    let slider = { id: "year-slider"
+                 , start: [min, max]
+                 , margin: Just 1
+                 , limit: Nothing
+                 , connect: Just true
+                 , direction: Nothing
+                 , orientation: Nothing
+                 , behavior: Nothing
+                 , step: Just 1
+                 , range: Just { min, max }
+                 }
+    H.subscribe $ eventSource'
+      (onSliderUpdate slider)
+      (Just <<< H.request <<< FilterByYear)
+    pure next
 
   eval (RenderMore reply) = do
     logDebug "RenderMore"
@@ -171,38 +213,6 @@ component =
         { filters { author = filterState.author, title = filterState.title }
         , selectedPapers = filter filterState stateRec
         })
-    pure next
-
-  evalResponse
-    :: forall a
-    . { archive :: Archive, date :: WrappedDate }
-    -> a
-    -> H.ParentDSL State Query Filtering.Query FilteringSlot Void m a
-  evalResponse response next = do
-    let paperCount = Array.length response.archive.papers
-    dailyIndex <- getDailyIndex paperCount
-    let stateRec = convert dailyIndex response
-    H.put $ Loaded stateRec
-    let min = toInt stateRec.overallMinYear
-    let max = (toInt stateRec.overallMaxYear) + 1
-    let slider = { id: "year-slider"
-                 , start: [min, max]
-                 , margin: Just 1
-                 , limit: Nothing
-                 , connect: Just true
-                 , direction: Nothing
-                 , orientation: Nothing
-                 , behavior: Nothing
-                 , step: Just 1
-                 , range: Just { min, max }
-                 }
-    logDebug ("RequestArchive -- " <> show slider)
-    H.subscribe $ eventSource'
-      (onSliderUpdate slider)
-      (Just <<< H.request <<< FilterByYear)
-    H.subscribe $ eventSource_'
-      (afterDuration 750)
-      (H.request RenderMore)
     pure next
 
 buildAuthorFilterIds
@@ -330,24 +340,3 @@ isSelected filters@{ facets, includeUnknown } { max, min } paper =
 mapState :: (StateRec -> StateRec) -> State -> State
 mapState f (Loaded stateRec) = Loaded $ f stateRec
 mapState f state             = state
-
-view
-  :: forall m
-   . MonadAff m
-  => LogMessages m
-  => Now m
-  => RequestArchive m
-  => StateRec
-  -> H.ParentHTML Query Filtering.Query FilteringSlot m
-view stateRec@{ dailyIndex, ids, papers, selectedPapers } =
-  HH.div
-    [ _class "container" ]
-    [ viewHeader $ Array.length selectedPapers
-    , viewPaperOfTheDay AddFacet (papers !! dailyIndex)
-    , HH.slot
-        FilteringSlot
-        Filtering.component
-        { ids, papers }
-        (HE.input HandleFilteringUpdate)
-    , viewPaperList AddFacet stateRec
-    ]
