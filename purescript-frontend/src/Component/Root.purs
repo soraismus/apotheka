@@ -21,7 +21,7 @@ import Apotheka.Data.Paper (Paper)
 import Apotheka.Data.Present (present)
 import Apotheka.Data.Year (Year, toInt)
 import Apotheka.Data.WrappedDate (WrappedDate(WrappedDate))
-import Apotheka.Foreign.Slider (SliderYears, onSliderUpdate)
+import Apotheka.Foreign.Slider (Slider, SliderYears, onSliderUpdate)
 import Data.Array ((!!))
 import Data.Array as Array
 import Data.Date (Date)
@@ -119,7 +119,7 @@ component =
   render (Loaded stateRec@{ dailyIndex, ids, papers, selectedPapers }) =
     HH.div
       [ _class "container" ]
-      [ viewHeader $ Array.length selectedPapers
+      [ viewHeader $ Array.length papers
       , viewPaperOfTheDay AddFacet (papers !! dailyIndex)
       , HH.slot
           FilteringSlot
@@ -138,11 +138,12 @@ component =
   eval (Initialize next) = do
     logDebug "Initialize"
     H.subscribe $ eventSource_'
-      (afterDuration 750)
+      (afterDuration 1500)
       (H.request RenderMore)
     requestArchive >>= case _ of
-      Just response -> eval $ LoadArchive response next
-      Nothing       -> H.put LoadError *> pure next
+      Just response -> void $ H.fork $ eval $ LoadArchive response unit
+      Nothing       -> H.put LoadError *> pure unit
+    pure next
 
   eval (LoadArchive response@{ archive, date } next) = do
     logDebug "LoadArchive"
@@ -150,25 +151,15 @@ component =
     dailyIndex <- getDailyIndex paperCount
     let stateRec = convert dailyIndex response
     H.put $ Loaded stateRec
-    eval (ConfigureSlider stateRec next)
+    void $ H.fork $ eval (ConfigureSlider stateRec unit)
+    pure next
 
   eval (ConfigureSlider stateRec next) = do
     logDebug "ConfigureSlider"
     let min = toInt stateRec.overallMinYear
     let max = (toInt stateRec.overallMaxYear) + 1
-    let slider = { id: "year-slider"
-                 , start: [min, max]
-                 , margin: Just 1
-                 , limit: Nothing
-                 , connect: Just true
-                 , direction: Nothing
-                 , orientation: Nothing
-                 , behavior: Nothing
-                 , step: Just 1
-                 , range: Just { min, max }
-                 }
     H.subscribe $ eventSource'
-      (onSliderUpdate slider)
+      (onSliderUpdate $ getSlider { max, min })
       (Just <<< H.request <<< FilterByYear)
     pure next
 
@@ -305,6 +296,20 @@ forLoaded _                 _ = pure unit
 
 getAllIds :: Array Paper -> Set Id
 getAllIds = foldr (Set.insert <<< _.titleId) Set.empty
+
+getSlider :: { max :: Int, min :: Int } -> Slider
+getSlider { max, min } =
+  { id: "year-slider"
+  , start: [min, max]
+  , margin: Just 1
+  , limit: Nothing
+  , connect: Just true
+  , direction: Nothing
+  , orientation: Nothing
+  , behavior: Nothing
+  , step: Just 1
+  , range: Just { min, max }
+  }
 
 isSelected
   :: forall r0 r1 r2 r3
