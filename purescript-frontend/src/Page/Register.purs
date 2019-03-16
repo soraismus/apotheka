@@ -5,44 +5,147 @@ module Apotheka.Page.Register
 
 import Prelude
 
-import Apotheka.Capability.Navigate (class Navigate)
+import Apotheka.Capability.Navigate (class Navigate, navigate)
+import Apotheka.Capability.Resource.User (class ManageUser, registerUser)
+import Apotheka.Component.HTML.RwHeader (viewRwHeader)
+import Apotheka.Component.HTML.Utils (_class, safeHref)
+import Apotheka.Component.Utils (guardNoSession)
+import Apotheka.Data.Email (Email)
 import Apotheka.Data.Profile (Profile)
+import Apotheka.Data.Route (Route(..))
+import Apotheka.Data.Username (Username)
+import Apotheka.Form.Field as Field
+import Apotheka.Form.Validation as V
 import Control.Monad.Reader (class MonadAsk)
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Foldable (for_)
+import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Ref (Ref)
-import Halogen
-  ( Component
-  , ComponentDSL
-  , ComponentHTML
-  , action
-  , lifecycleComponent
-  )
-import Halogen.HTML (HTML, text)
+import Formless as F
+import Formless as Formless
+import Halogen as H
+import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
 
 data Query a
   = Initialize a
+  | HandleForm (F.Message' RegisterForm) a
 
-type State = Unit
+type State =
+  { currentUser :: Maybe Profile
+  }
+
+type ChildQuery m = F.Query' RegisterForm m
 
 component
   :: forall m r
    . MonadAff m
   => MonadAsk { currentUser :: Ref (Maybe Profile) | r } m
+  => ManageUser m
   => Navigate m
-  => Component HTML Query Unit Void m
+  => H.Component HH.HTML Query Unit Void m
 component =
-  lifecycleComponent
-    { initialState: const unit
+  H.lifecycleParentComponent
+    { initialState: \_ -> { currentUser: Nothing }
     , render
     , eval
     , receiver: const Nothing
-    , initializer: Just $ action Initialize
+    , initializer: Just $ H.action Initialize
     , finalizer: Nothing
     }
   where
-  render :: State -> ComponentHTML Query
-  render state = text "Register"
+  eval :: Query ~> H.ParentDSL State Query (ChildQuery m) Unit Void m
+  eval = case _ of
+    Initialize a -> do
+      guardNoSession
+      pure a
 
-  eval :: Query ~> ComponentDSL State Query Void m
-  eval (Initialize next) = pure next
+    HandleForm msg a -> case msg of
+      F.Submitted formOutputs -> do
+        mbUser <- registerUser $ F.unwrapOutputFields formOutputs
+        for_ mbUser (\_ -> navigate Home)
+        pure a
+      _ -> pure a
+
+  render :: State -> H.ParentHTML Query (ChildQuery m) Unit m
+  render _ =
+    container
+      [ HH.h1
+        [ _class "text-xs-center"]
+        [ HH.text "Sign Up" ]
+      , HH.p
+        [ _class "text-xs-center" ]
+        [ HH.a
+          [ safeHref Login ]
+          [ HH.text "Already have an account?" ]
+        ]
+      , HH.slot unit Formless.component
+          { initialInputs: F.mkInputFields formProxy
+          , validators
+          , render: renderFormless
+          }
+          (HE.input HandleForm)
+      ]
+    where
+    container html =
+      HH.div_
+        [ viewRwHeader Nothing Register
+        , HH.div
+          [ _class "auth-page" ]
+          [ HH.div
+              [ _class "container page" ]
+              [ HH.div
+                [ _class "row" ]
+                [ HH.div
+                  [ _class "col-md-6 offset-md-3 col-xs12" ]
+                  html
+                ]
+              ]
+          ]
+        ]
+
+newtype RegisterForm r f = RegisterForm (r
+  ( username :: f V.FormError String Username
+  , email :: f V.FormError String Email
+  , password :: f V.FormError String String
+  ))
+
+derive instance newtypeRegisterForm :: Newtype (RegisterForm r f) _
+
+formProxy :: F.FormProxy RegisterForm
+formProxy = F.FormProxy
+
+proxies :: F.SProxies RegisterForm
+proxies = F.mkSProxies formProxy
+
+validators :: forall m. Monad m => RegisterForm Record (F.Validation RegisterForm m)
+validators = RegisterForm
+  { username: V.required >>> V.usernameFormat
+  , email: V.required >>> V.minLength 3 >>> V.emailFormat
+  , password: V.required >>> V.minLength 8 >>> V.maxLength 20
+  }
+
+renderFormless :: forall m. MonadAff m => F.State RegisterForm m -> F.HTML' RegisterForm m
+renderFormless fstate =
+  HH.form_
+    [ HH.fieldset_
+      [ username
+      , email
+      , password
+      ]
+    , Field.submit "Sign up"
+    ]
+  where
+  username =
+    Field.input proxies.username fstate.form
+      [ HP.placeholder "Username", HP.type_ HP.InputText ]
+
+  email =
+    Field.input proxies.email fstate.form
+      [ HP.placeholder "Email", HP.type_ HP.InputEmail ]
+
+  password =
+    Field.input proxies.password fstate.form
+      [ HP.placeholder "Password" , HP.type_ HP.InputPassword ]

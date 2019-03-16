@@ -87,7 +87,7 @@ instance monadAskAppM :: TypeEquals e Env => MonadAsk e AppM where
 
 instance navigateAppM :: Navigate AppM where
   logout = do
-     liftEffect <<< Ref.write Nothing =<< asks _.currentUser
+     asks _.currentUser >>= Ref.write Nothing >>> liftEffect
      liftEffect Request.removeToken
      navigate Home
 

@@ -18,16 +18,12 @@ import Apotheka.Data.Author (Author)
 import Apotheka.Data.Id (Id)
 import Apotheka.Data.Paper (Paper)
 import Apotheka.Data.Present (present)
-import Apotheka.Data.Year (Year)
-import Apotheka.Data.WrappedDate (WrappedDate(..))
 import Data.Array as Array
 import Data.Either (Either(Left, Right), either)
 import Data.Filterable (maybeBool)
 import Data.Foldable (all, any, foldM, foldr)
 import Data.List (List(Nil), (:))
-import Data.Map (Map)
-import Data.Map as Map
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Nothing))
 import Data.Set (Set)
 import Data.Set as Set
 import Data.String as String
@@ -36,12 +32,9 @@ import Data.String.Regex as Regex
 import Data.String.Regex.Flags (ignoreCase)
 import DOM.HTML.Indexed.InputType as InputType
 import Effect.Aff.Class (class MonadAff)
-import Halogen (HTML)
 import Halogen as H
-import Halogen.HTML (a, div_, h1_, header_, text)
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties (href)
 import Halogen.HTML.Properties as HP
 import Web.UIEvent.KeyboardEvent (KeyboardEvent, key)
 
